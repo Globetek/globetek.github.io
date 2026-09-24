@@ -124,6 +124,14 @@
     background:var(--cloudmist);padding:14px 28px;font-size:11px;
     color:var(--slate);border-top:1px solid var(--steeltint);
   }
+  /* Botón de confirmar: la nota se guarda solo cuando una persona lo toca. Los filtros de seguridad
+     del correo corporativo abren todos los links del correo; si la página guardara al cargar,
+     cada link abierto quedaría como una respuesta (pasó el 2026-09-24 con Entel, Macropay y CrediGo). */
+  .send{
+    display:block;width:100%;margin:4px 0 0;padding:14px 18px;border:0;border-radius:12px;
+    background:var(--navy);color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer;
+  }
+  .send:disabled{background:var(--steeltint);color:var(--slate);cursor:default;}
   .err{display:none;color:var(--coral);font-size:12.5px;margin:14px 0 0;font-weight:600;}
   @media (prefers-reduced-motion: reduce){ .num{transition:none;} }
 </style>
@@ -144,6 +152,7 @@
       <span id="txtHigh">Muy probable</span>
     </div>
 
+    <button type="button" class="send" id="sendBtn" disabled>Enviar</button>
     <p class="err" id="errMsg">No pudimos registrar tu respuesta. Intentá de nuevo.</p>
   </div>
 
@@ -192,6 +201,9 @@
       thanksCopy: 'Tu respuesta ya quedó registrada. Tu opinión define cómo seguimos mejorando.',
       thanksCopyLow: 'Tu respuesta ya quedó registrada. Alguien del equipo va a contactarte para entender qué podemos hacer mejor.',
       foot: 'Equipo de Customer Success de Globetek',
+      pick: 'Elige un número',
+      send: 'Enviar mi calificación',
+      confirm: 'Confirma tu calificación tocando Enviar.',
       commentLow: '¿Qué podríamos hacer mejor?',
       commentHigh: '¿Algo que quieras contarnos? (opcional)',
       commentBtn: 'Enviar',
@@ -208,6 +220,9 @@
       thanksCopy: 'Your answer has been logged. Your feedback shapes how we keep improving.',
       thanksCopyLow: 'Your answer has been logged. Someone from the team will reach out to understand what we can do better.',
       foot: 'Globetek Customer Success Team',
+      pick: 'Pick a number',
+      send: 'Send my score',
+      confirm: 'Confirm your score by tapping Send.',
       commentLow: 'What could we do better?',
       commentHigh: 'Anything else you would like to share? (optional)',
       commentBtn: 'Send',
@@ -322,28 +337,46 @@
 
   // Puntaje elegido en el correo mismo (un link por número, con ?score=N) — un solo
   // click para el cliente: se registra al cargar y va directo al agradecimiento.
+  var sendBtn = document.getElementById('sendBtn');
+  var selected = null;
+  sendBtn.textContent = t.pick;
+
+  function select(val){
+    selected = val;
+    nums.forEach(function(n){
+      var v = parseInt(n.getAttribute('data-v'), 10);
+      n.className = 'num ' + band(v) + (v === val ? ' active' : '');
+    });
+    sendBtn.disabled = false;
+    sendBtn.textContent = t.send + ' (' + val + ')';
+  }
+
+  // El número que viene en el link solo queda preseleccionado; se guarda al tocar Enviar.
   var urlScore = parseInt(params.get('score'), 10);
   if (urlScore >= 0 && urlScore <= 10) {
-    submitted = true;
-    showThanks(urlScore);
-    submitScore(urlScore);
+    select(urlScore);
+    document.getElementById('txtCopy').textContent = t.confirm;
   }
+
+  sendBtn.addEventListener('click', function(){
+    if (submitted || selected === null) return;
+    submitted = true;
+    var val = selected;
+    sendBtn.disabled = true;
+    nums.forEach(function(n){ n.disabled = true; });
+    document.getElementById('errMsg').style.display = 'none';
+    submitScore(val, function(){
+      document.getElementById('errMsg').style.display = 'block';
+      submitted = false;
+      sendBtn.disabled = false;
+      nums.forEach(function(n){ n.disabled = false; });
+    });
+  });
 
   nums.forEach(function(btn){
     btn.addEventListener('click', function(){
       if (submitted) return;
-      submitted = true;
-      var val = parseInt(btn.getAttribute('data-v'), 10);
-      btn.classList.add('active');
-      nums.forEach(function(n){ n.disabled = true; });
-      document.getElementById('errMsg').style.display = 'none';
-
-      submitScore(val, function(){
-        document.getElementById('errMsg').style.display = 'block';
-        submitted = false;
-        btn.className = 'num ' + band(val);
-        nums.forEach(function(n){ n.disabled = false; });
-      });
+      select(parseInt(btn.getAttribute('data-v'), 10));
     });
   });
 })();
