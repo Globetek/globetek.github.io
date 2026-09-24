@@ -106,6 +106,20 @@
   .thanks .chosen.passive{background:var(--deeplayer);}
   .thanks h2{font-size:21px;color:var(--navy);margin:0 0 10px;font-weight:700;line-height:1.35;}
   .thanks p{font-size:14px;color:#3d4a5c;margin:0;line-height:1.6;max-width:40ch;}
+  /* Comentario opcional: a quien califica 0-6 se le pregunta qué mejorar (pedido de Nicolás). */
+  .comment{margin:22px 0 0;}
+  .comment label{display:block;font-size:14px;font-weight:700;color:var(--navy);margin:0 0 8px;}
+  .comment textarea{
+    width:100%;box-sizing:border-box;min-height:96px;padding:12px 14px;border:1px solid var(--steeltint);
+    border-radius:12px;font:inherit;font-size:14px;color:var(--ink);resize:vertical;background:#fff;
+  }
+  .comment textarea:focus{outline:none;border-color:var(--deeplayer);box-shadow:0 0 0 3px var(--passivetint);}
+  .comment button{
+    margin:12px 0 0;padding:11px 22px;border:0;border-radius:10px;background:var(--navy);color:#fff;
+    font:inherit;font-size:14px;font-weight:700;cursor:pointer;
+  }
+  .comment button:disabled{opacity:.6;cursor:default;}
+  .comment .sent{display:none;font-size:14px;color:var(--promoter);font-weight:600;margin:12px 0 0;}
   .foot{
     background:var(--cloudmist);padding:14px 28px;font-size:11px;
     color:var(--slate);border-top:1px solid var(--steeltint);
@@ -137,6 +151,12 @@
     <div class="chosen" id="chosenNum">0</div>
     <h2 id="txtThanksTitle">¡Gracias por tu tiempo!</h2>
     <p id="txtThanksCopy">Tu respuesta ya quedó registrada. Tu opinión define cómo seguimos mejorando.</p>
+    <div class="comment" id="commentBox">
+      <label for="commentText" id="txtCommentLabel">¿Qué podríamos hacer mejor?</label>
+      <textarea id="commentText" maxlength="2000"></textarea>
+      <button type="button" id="commentBtn">Enviar</button>
+      <p class="sent" id="commentSent">¡Gracias! Lo recibimos.</p>
+    </div>
   </div>
 
   <div class="foot" id="txtFoot">Equipo de Customer Success de Globetek</div>
@@ -171,7 +191,11 @@
       thanksTitle: '¡Gracias por tu tiempo!',
       thanksCopy: 'Tu respuesta ya quedó registrada. Tu opinión define cómo seguimos mejorando.',
       thanksCopyLow: 'Tu respuesta ya quedó registrada. Alguien del equipo va a contactarte para entender qué podemos hacer mejor.',
-      foot: 'Equipo de Customer Success de Globetek'
+      foot: 'Equipo de Customer Success de Globetek',
+      commentLow: '¿Qué podríamos hacer mejor?',
+      commentHigh: '¿Algo que quieras contarnos? (opcional)',
+      commentBtn: 'Enviar',
+      commentSent: '¡Gracias! Lo recibimos.'
     },
     en: {
       eyebrow: 'Loyalty survey',
@@ -183,7 +207,11 @@
       thanksTitle: 'Thanks for your time!',
       thanksCopy: 'Your answer has been logged. Your feedback shapes how we keep improving.',
       thanksCopyLow: 'Your answer has been logged. Someone from the team will reach out to understand what we can do better.',
-      foot: 'Globetek Customer Success Team'
+      foot: 'Globetek Customer Success Team',
+      commentLow: 'What could we do better?',
+      commentHigh: 'Anything else you would like to share? (optional)',
+      commentBtn: 'Send',
+      commentSent: 'Thank you! We got it.'
     }
   };
   var t = i18n[lang];
@@ -217,6 +245,25 @@
   }
   var nums = document.querySelectorAll('.num');
   var submitted = false;
+  var lastScore = null;
+
+  // El comentario va en un segundo envío del mismo form, con el mismo puntaje: la nota ya quedó
+  // guardada al tocar el número, así que escribir es opcional.
+  document.getElementById('commentBtn').addEventListener('click', function(){
+    var txt = document.getElementById('commentText').value.trim();
+    if (!txt || lastScore === null) return;
+    var btn = this; btn.disabled = true;
+    var fields = [{name:'nps_score_zappy', value:String(lastScore)}, {name:'nps_comentario_zappy', value:txt}];
+    if (email) fields.unshift({name:'email', value: email});
+    fetch('https://api.hsforms.com/submissions/v3/integration/submit/' + PORTAL_ID + '/' + FORM_GUID, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({fields: fields})
+    }).then(function(res){
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      document.getElementById('commentText').disabled = true;
+      btn.style.display = 'none';
+      document.getElementById('commentSent').style.display = 'block';
+    }).catch(function(){ btn.disabled = false; });
+  });
 
   function showThanks(val){
     var chosen = document.getElementById('chosenNum');
@@ -224,6 +271,10 @@
     chosen.className = 'chosen ' + band(val);
     document.getElementById('txtThanksTitle').textContent = t.thanksTitle;
     document.getElementById('txtThanksCopy').textContent = val <= 6 ? t.thanksCopyLow : t.thanksCopy;
+    lastScore = val;
+    document.getElementById('txtCommentLabel').textContent = val <= 6 ? t.commentLow : t.commentHigh;
+    document.getElementById('commentBtn').textContent = t.commentBtn;
+    document.getElementById('commentSent').textContent = t.commentSent;
     document.getElementById('rateView').style.display = 'none';
     document.getElementById('thanksView').style.display = 'block';
   }
