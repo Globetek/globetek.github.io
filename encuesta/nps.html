@@ -152,7 +152,13 @@
 
   var params = new URLSearchParams(window.location.search);
   var lang = (params.get('lang') || 'es').toLowerCase() === 'en' ? 'en' : 'es';
-  var email = params.get('email') || '';
+  // t = email en base64url: el link del correo queda sin '@' ni 'email=', que en Gmail
+  // hacen que el link parezca sospechoso.
+  function fromToken(t){
+    try { t = t.replace(/-/g,'+').replace(/_/g,'/'); while (t.length % 4) t += '=';
+          return decodeURIComponent(escape(atob(t))); } catch(e){ return ''; }
+  }
+  var email = params.get('email') || (params.get('t') ? fromToken(params.get('t')) : '');
 
   var i18n = {
     es: {
