@@ -231,13 +231,13 @@
     var fields = [{name:'ticket_id', value: ticketId}, {name:'csat_score_zappy', value: String(val)}];
     if (email) fields.unshift({name:'email', value: email});
 
-    return waitForHutk(3000).then(function(hutk){
+    return waitForHutk(0).then(function(hutk){
       var context = {pageUri: window.location.href, pageName: 'CSAT Globetek'};
       if (hutk) context.hutk = hutk;
       return fetch('https://api.hsforms.com/submissions/v3/integration/submit/' + PORTAL_ID + '/' + FORM_GUID, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({fields: fields, context: context})
+        body: JSON.stringify({fields: fields})  // sin context: con pageUri de github.io HubSpot descarta la respuesta (probado 2026-09-24)
       });
     }).then(function(res){
       if (!res.ok) throw new Error('HTTP ' + res.status);
