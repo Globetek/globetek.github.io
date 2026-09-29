@@ -91,6 +91,13 @@
     background:var(--cloudmist);padding:14px 28px;font-size:11px;
     color:var(--slate);border-top:1px solid var(--steeltint);
   }
+  /* Guardar solo al tocar Enviar: los filtros de seguridad del correo corporativo abren
+     todos los links; si la página guardara al cargar, cada link abierto contaría como respuesta. */
+  .send{
+    display:block;width:100%;margin:4px 0 0;padding:14px 18px;border:0;border-radius:12px;
+    background:var(--navy);color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer;
+  }
+  .send:disabled{background:var(--steeltint);color:var(--slate);cursor:default;}
   .err{display:none;color:var(--coral);font-size:12.5px;margin:14px 0 0;font-weight:600;}
   @media (prefers-reduced-motion: reduce){ .star{transition:none;} }
 </style>
@@ -117,6 +124,7 @@
       <span id="txtHigh">Muy satisfecho</span>
     </div>
 
+    <button type="button" class="send" id="sendBtn" disabled>Enviar</button>
     <p class="err" id="errMsg">No pudimos registrar tu calificación. Intentá de nuevo.</p>
   </div>
 
@@ -146,7 +154,13 @@
   var params = new URLSearchParams(window.location.search);
   var lang = (params.get('lang') || 'es').toLowerCase() === 'en' ? 'en' : 'es';
   var ticketId = params.get('t') || '';
-  var email = params.get('email') || '';
+  // e = email en base64url: el link queda sin '@' ni 'email=', que en Gmail lo hacen parecer
+  // sospechoso. email= se sigue aceptando para los correos viejos del workflow.
+  function fromToken(v){
+    try { v = v.replace(/-/g,'+').replace(/_/g,'/'); while (v.length % 4) v += '=';
+          return decodeURIComponent(escape(atob(v))); } catch(err){ return ''; }
+  }
+  var email = params.get('email') || (params.get('e') ? fromToken(params.get('e')) : '');
 
   var i18n = {
     es: {
@@ -159,7 +173,10 @@
       thanksTitle: '¡Gracias por tu tiempo!',
       thanksCopy: 'Tu calificación ya quedó registrada. Nos ayuda a mejorar cada día.',
       thanksCopyLow: 'Tu calificación ya quedó registrada. Alguien del equipo va a revisar tu caso y te va a contactar.',
-      foot: 'Equipo de Customer Success de Globetek'
+      foot: 'Equipo de Customer Success de Globetek',
+      pick: 'Elige una estrella',
+      send: 'Enviar mi calificación',
+      confirm: 'Confirma tu calificación tocando Enviar.'
     },
     en: {
       eyebrow: 'Satisfaction survey',
@@ -171,7 +188,10 @@
       thanksTitle: 'Thanks for your time!',
       thanksCopy: 'Your rating has been logged. It helps us get better every day.',
       thanksCopyLow: 'Your rating has been logged. A team member will review your case and reach out to you.',
-      foot: 'Globetek Customer Success Team'
+      foot: 'Globetek Customer Success Team',
+      pick: 'Pick a star',
+      send: 'Send my rating',
+      confirm: 'Confirm your rating by tapping Send.'
     }
   };
   var t = i18n[lang];
@@ -251,30 +271,44 @@
     });
   }
 
-  // Rating chosen in the email itself (a star link carrying ?score=N) — one click for
-  // the customer: record it on load and go straight to the thank-you screen.
+  var sendBtn = document.getElementById('sendBtn');
+  var selected = null;
+  sendBtn.textContent = t.pick;
+
+  function select(val){
+    selected = val;
+    paint(stars, val);
+    sendBtn.disabled = false;
+    sendBtn.textContent = t.send + ' (' + val + '/5)';
+  }
+
+  // La estrella que viene en el link del correo (?score=N) solo queda preseleccionada;
+  // se guarda cuando el cliente toca Enviar.
   var urlScore = parseInt(params.get('score'), 10);
   if (urlScore >= 1 && urlScore <= 5) {
-    submitted = true;
-    showThanks(urlScore);
-    submitScore(urlScore);
+    select(urlScore);
+    document.getElementById('txtCopy').textContent = t.confirm;
   }
 
   stars.forEach(function(btn){
     btn.addEventListener('click', function(){
       if (submitted) return;
-      submitted = true;
-      var val = parseInt(btn.getAttribute('data-v'), 10);
-      paint(stars, val);
-      stars.forEach(function(s){ s.disabled = true; });
-      document.getElementById('errMsg').style.display = 'none';
+      select(parseInt(btn.getAttribute('data-v'), 10));
+    });
+  });
 
-      submitScore(val, function(){
-        document.getElementById('errMsg').style.display = 'block';
-        submitted = false;
-        paint(stars, 0);
-        stars.forEach(function(s){ s.disabled = false; });
-      });
+  sendBtn.addEventListener('click', function(){
+    if (submitted || selected === null) return;
+    submitted = true;
+    var val = selected;
+    sendBtn.disabled = true;
+    stars.forEach(function(s){ s.disabled = true; });
+    document.getElementById('errMsg').style.display = 'none';
+    submitScore(val, function(){
+      document.getElementById('errMsg').style.display = 'block';
+      submitted = false;
+      sendBtn.disabled = false;
+      stars.forEach(function(s){ s.disabled = false; });
     });
   });
 })();
