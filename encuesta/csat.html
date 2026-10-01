@@ -98,6 +98,13 @@
     background:var(--navy);color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer;
   }
   .send:disabled{background:var(--steeltint);color:var(--slate);cursor:default;}
+  /* Comentario opcional: la pregunta cambia con la nota (qué mejorar si fue baja). */
+  .commentlabel{display:block;font-size:13px;font-weight:600;color:var(--navy);margin:0 0 8px;}
+  .comment{
+    display:block;width:100%;min-height:84px;resize:vertical;margin:0 0 14px;padding:12px 14px;
+    border:1px solid var(--steeltint);border-radius:12px;font:inherit;font-size:14px;color:var(--ink);background:#fff;
+  }
+  .comment:focus{outline:2px solid var(--deeplayer);outline-offset:1px;border-color:transparent;}
   .err{display:none;color:var(--coral);font-size:12.5px;margin:14px 0 0;font-weight:600;}
   @media (prefers-reduced-motion: reduce){ .star{transition:none;} }
 </style>
@@ -124,6 +131,10 @@
       <span id="txtHigh">Muy satisfecho</span>
     </div>
 
+    <div id="commentBox" hidden>
+      <label class="commentlabel" for="comment" id="txtCommentLabel">¿Algo que quieras contarnos? (opcional)</label>
+      <textarea class="comment" id="comment" maxlength="1000"></textarea>
+    </div>
     <button type="button" class="send" id="sendBtn" disabled>Enviar</button>
     <p class="err" id="errMsg">No pudimos registrar tu calificación. Intentá de nuevo.</p>
   </div>
@@ -176,7 +187,9 @@
       foot: 'Equipo de Customer Success de Globetek',
       pick: 'Elige una estrella',
       send: 'Enviar mi calificación',
-      confirm: 'Confirma tu calificación tocando Enviar.'
+      confirm: 'Confirma tu calificación tocando Enviar.',
+      commentLow: '¿Qué podemos mejorar? (opcional)',
+      commentHigh: '¿Algo que quieras contarnos? (opcional)'
     },
     en: {
       eyebrow: 'Satisfaction survey',
@@ -191,7 +204,9 @@
       foot: 'Globetek Customer Success Team',
       pick: 'Pick a star',
       send: 'Send my rating',
-      confirm: 'Confirm your rating by tapping Send.'
+      confirm: 'Confirm your rating by tapping Send.',
+      commentLow: 'What could we do better? (optional)',
+      commentHigh: 'Anything you would like to tell us? (optional)'
     }
   };
   var t = i18n[lang];
@@ -250,6 +265,8 @@
   function submitScore(val, onError){
     var fields = [{name:'ticket_id', value: ticketId}, {name:'csat_score_zappy', value: String(val)}];
     if (email) fields.unshift({name:'email', value: email});
+    var comment = document.getElementById('comment').value.trim();
+    if (comment) fields.push({name:'csat_comentario_zappy', value: comment});
 
     return waitForHutk(0).then(function(hutk){
       var context = {pageUri: window.location.href, pageName: 'CSAT Globetek'};
@@ -280,6 +297,8 @@
     paint(stars, val);
     sendBtn.disabled = false;
     sendBtn.textContent = t.send + ' (' + val + '/5)';
+    document.getElementById('commentBox').hidden = false;
+    document.getElementById('txtCommentLabel').textContent = val <= 3 ? t.commentLow : t.commentHigh;
   }
 
   // La estrella que viene en el link del correo (?score=N) solo queda preseleccionada;
@@ -303,12 +322,14 @@
     var val = selected;
     sendBtn.disabled = true;
     stars.forEach(function(s){ s.disabled = true; });
+    document.getElementById('comment').disabled = true;
     document.getElementById('errMsg').style.display = 'none';
     submitScore(val, function(){
       document.getElementById('errMsg').style.display = 'block';
       submitted = false;
       sendBtn.disabled = false;
       stars.forEach(function(s){ s.disabled = false; });
+      document.getElementById('comment').disabled = false;
     });
   });
 })();
